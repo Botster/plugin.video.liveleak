@@ -1,6 +1,6 @@
 import urllib,urllib2,re,xbmcplugin,xbmcgui
+from HTMLParser import HTMLParser
 
-#LiveLeak.com- by Oneadvent 2012.
 BASE = "http://www.liveleak.com/"
 
 
@@ -28,6 +28,7 @@ def INDEX(url):
     response = urllib2.urlopen(req)
     link=response.read()
     response.close()
+    
     try:
         appdg = after.split('&')[1]
         before = after.split('&')[0]
@@ -37,21 +38,34 @@ def INDEX(url):
         newURL = after + "&page=2"
         appdg = 2
     addDir("Go To Page " + str(appdg), newURL, 1, "")
-    match=re.compile('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"').findall(link)
+    
+    match=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', link)
     for url,thumbnail,name in match:
+        # Aggressively decode HTML entities to regular characters
+        h = HTMLParser()
+        name=h.unescape(h.unescape(name))
+        
         req = urllib2.Request(url)
         req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36')
         response = urllib2.urlopen(req)
         link=response.read()
         response.close()
-        match=re.compile('<source src="(.+?)".*$', re.MULTILINE).findall(link)
-        match=list(set(match))
-        for url in match:
-            addLink(name,url,thumbnail,"")
-        match=re.compile('src="//www.youtube.com/embed/(.+?)?rel=0.*$', re.MULTILINE).findall(link)
-        for url in match:
-            youtubeurl = 'plugin://plugin.video.youtube/?action=play_video&videoid=%s' % url
-            addLink(name,youtubeurl,thumbnail,"")
+        
+        match = re.findall('<source src="(.+?)".*$', link, re.MULTILINE)
+        for idx, url in enumerate(match):
+            if len(match) > 1:
+                idx_tag = " (" + str(idx + 1) + ")"
+            else:
+                idx_tag = ''
+            addLink(name + idx_tag, url, thumbnail, "")
+        match = re.findall('src="//www.youtube.com/embed/(.+?)\?rel=0.*$', link, re.MULTILINE)
+        for idx, url in enumerate(match):
+            if len(match) > 1:
+                idx_tag = " (" + str(idx + 1) + ")"
+            else:
+                idx_tag = ''
+            youtubeurl = 'plugin://plugin.video.youtube/play/?video_id=%s' % url
+            addLink(name + idx_tag, youtubeurl, thumbnail, "")
 
 
 def get_params():
