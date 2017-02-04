@@ -1,5 +1,9 @@
-import urllib,urllib2,re,xbmcplugin,xbmcgui
+# Standard libraries
+import urllib,urllib2,re
 from HTMLParser import HTMLParser
+
+# Kodi libraries
+import xbmcplugin,xbmcgui
 
 BASE = "http://www.liveleak.com/"
 
@@ -41,9 +45,16 @@ def INDEX(url):
     
     match=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', link)
     for url,thumbnail,name in match:
-        # Aggressively decode HTML entities to regular characters
+        # Convert utf8-encoded 'name' string to unicode to prevent errors.
+        # Also ignore unrecognized characters.
+        name = unicode(name, 'utf-8', errors='ignore')
+
+        # Strip any dangling whitespace and decode (possibly double-stacked) html entities.
         h = HTMLParser()
-        name=h.unescape(h.unescape(name))
+        name = h.unescape(h.unescape(name.strip()))
+
+        # Convert back to utf-8 for output
+        name = name.encode('utf-8')
         
         req = urllib2.Request(url)
         req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36')
