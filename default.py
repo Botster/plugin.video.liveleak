@@ -1,14 +1,19 @@
 # Standard libraries
-import urllib,urllib2,re
+import urllib, urllib2, urlparse, re
 from HTMLParser import HTMLParser
 
 # Kodi libraries
-import xbmcplugin,xbmcgui
+import xbmc, xbmcplugin, xbmcgui
 
-BASE = "http://www.liveleak.com/"
+# Identifiers
+BASE_URL = sys.argv[0]
+ADDON_HANDLE = sys.argv[1]
 
+domain_home = "http://www.liveleak.com/"
 
-def CATEGORIES():
+# --- Functions ---
+
+def categories():
     addDir('Popular','browse?popular',1,'')
     addDir('Featured','browse?featured=1',1,'')
     addDir('News & Politics','browse?channel_token=04c_1302956196',1,'')
@@ -21,12 +26,12 @@ def CATEGORIES():
     addDir('Search','browse?q=',1,'')
     
 
-def INDEX(url):
+def index(url):
     if url=="browse?q=":
         searchString = addSearch()
         url="browse?q="+searchString
     after = url
-    url = BASE + url
+    url = domain_home + url
     req = urllib2.Request(url)
     req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36')
     response = urllib2.urlopen(req)
@@ -63,47 +68,19 @@ def INDEX(url):
         response.close()
         
         match = re.findall('<source src="(.+?)".*$', link, re.MULTILINE)
-        for idx, url in enumerate(match):
-            if len(match) > 1:
-                idx_tag = " (" + str(idx + 1) + ")"
-            else:
-                idx_tag = ''
-            addLink(name + idx_tag, url, thumbnail, "")
+        for url in match:
+            addLink(name, url, thumbnail, "")
         match = re.findall('src="//www.youtube.com/embed/(.+?)\?rel=0.*$', link, re.MULTILINE)
-        for idx, url in enumerate(match):
-            if len(match) > 1:
-                idx_tag = " (" + str(idx + 1) + ")"
-            else:
-                idx_tag = ''
+        for url in match:
             youtubeurl = 'plugin://plugin.video.youtube/play/?video_id=%s' % url
-            addLink(name + idx_tag, youtubeurl, thumbnail, "")
-
-
-def get_params():
-    param=[]
-    paramstring=sys.argv[2]
-    if len(paramstring)>=2:
-        params=sys.argv[2]
-        cleanedparams=params.replace('?','')
-        if (params[len(params)-1]=='/'):
-            params=params[0:len(params)-2]
-        pairsofparams=cleanedparams.split('&')
-        param={}
-        for i in range(len(pairsofparams)):
-            splitparams={}
-            splitparams=pairsofparams[i].split('=')
-            if (len(splitparams))==2:
-                param[splitparams[0]]=splitparams[1]
-                            
-    return param
-
+            addLink(name, youtubeurl, thumbnail, "")
 
 def addLink(name,url,iconimage,urlType):
     ok=True
     liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=iconimage)
     liz.setInfo( type="Video", infoLabels={ "Title": name } )
     liz.setProperty('IsPlayable','true')
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=url,listitem=liz)
+    ok=xbmcplugin.addDirectoryItem(handle=int(ADDON_HANDLE),url=url,listitem=liz)
     return ok
 
 
@@ -121,48 +98,57 @@ def addSearch():
 
 
 def addDir(name,url,mode,iconimage):
-    u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)\
+    u=BASE_URL+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)\
         +"&name="+urllib.quote_plus(name)
     ok=True
     liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
     liz.setInfo( type="Video", infoLabels={ "Title": name } )
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=True)
+    ok=xbmcplugin.addDirectoryItem(handle=int(ADDON_HANDLE),url=u,listitem=liz,isFolder=True)
     return ok
 
 
-params=get_params()
-url=None
-name=None
-mode=None
+# --- Main Event ---
 
-try:
-    url=urllib.unquote_plus(params["url"])
-except:
-    pass
-try:
-    name=urllib.unquote_plus(params["name"])
-except:
-    pass
-try:
-    mode=int(params["mode"])
-except:
-    pass
+# Get any provided query string
+params = sys.argv[2][1:]
+if len(params) < 2: # No query string provided
+    mode = None # No mode, default to categories
+    name = None # Define to prevent errors
+    url = None # ... ditto
+else: # Parse the query string
+    # Strip any trailing '/'
+    if params[-1] == '/': params = params[:-1]
 
-print "Mode: "+str(mode)
-print "URL: "+str(url)
-print "Name: "+str(name)
+    # Parse query string into dictionary as {"key": [list-of-one]}
+    params = urlparse.parse_qs(params)
 
-if mode==None or url==None or len(url)<1:
-    print ""
-    CATEGORIES()
+    # Get list for parameter keys defaulting to None if nonexistent
+    mode = params.get('mode', None)
+    name = params.get('name', None)
+    url = params.get('url', None)
 
-elif mode==1:
-    print ""+url
-    INDEX(url)
+    # Get the only 'mode' list item and cast to int
+    if mode is not None: mode = int(mode[0]) 
 
-elif mode==2:
-    print ""+url
+    # Decode any %xx in the only 'name' list item
+    if name is not None:
+        name = urllib.unquote_plus(params["name"][0]) 
+
+    # Decode any %xx in the only 'url' list item
+    if url is not None:
+        url = urllib.unquote_plus(params["url"][0])
+
+#xbmc.log( "LIVELEAK-> Mode: "+str(mode)+", Name: "+str(name)+", URL: "+str(url) )
+
+
+if mode is None or url is None or len(url) < 1:
+    categories()
+
+elif mode == 1:
+    index(url)
+
+elif mode == 2:
     addSearch()
 
 
-xbmcplugin.endOfDirectory(int(sys.argv[1]))
+xbmcplugin.endOfDirectory(int(ADDON_HANDLE))
