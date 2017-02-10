@@ -2,7 +2,7 @@
 <addon id="plugin.video.liveleak"
     name="LiveLeak"
     version="0.0.7"
-    provider-name="Botster, oneadvent">
+    provider-name="Botster">
     <requires>
         <import addon="xbmc.python" version="2.6.0"/>
     </requires>
