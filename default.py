@@ -3,86 +3,79 @@ import urllib, urllib2, urlparse, re
 from HTMLParser import HTMLParser
 
 # Kodi libraries
-import xbmc, xbmcplugin, xbmcgui
+import xbmc, xbmcplugin, xbmcgui, xbmcaddon
 
 # Identifiers
 BASE_URL = sys.argv[0]
-ADDON_HANDLE = sys.argv[1]
+ADDON_HANDLE = int(sys.argv[1])
+addon         = xbmcaddon.Addon('plugin.video.liveleak')
+ADDON_NAME = addon.getAddonInfo('name')
 
-domain_home = "http://www.liveleak.com/"
+# Convenience
+h = HTMLParser()
+qp = urllib.quote_plus
+uqp = urllib.unquote_plus
 
+domain_home = "https://www.liveleak.com/"
+
+# -----------------
 # --- Functions ---
+# -----------------
 
-def categories():
-    addDir('Popular','browse?popular',1,'')
-    addDir('Featured','browse?featured=1',1,'')
-    addDir('News & Politics','browse?channel_token=04c_1302956196',1,'')
-    addDir('Yoursay','browse?channel_token=1b3_1302956579',1,'')
-    addDir('Must See','browse?channel_token=9ee_1303244161',1,'')
-    addDir('Syria','browse?channel_token=cf3_1304149308',1,'')
-    addDir('Iraq','browse?channel_token=e8a_1302956438',1,'')
-    addDir('Afghanistan','browse?channel_token=79f_1302956483',1,'')
-    addDir('Entertainment','browse?channel_token=51a_1302956523',1,'')
-    addDir('Search','browse?q=',1,'')
-    
+# --- Helper functions ---
 
-def index(url):
-    if url=="browse?q=":
-        searchString = addSearch()
-        url="browse?q="+searchString
-    after = url
-    url = domain_home + url
-    req = urllib2.Request(url)
-    req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36')
-    response = urllib2.urlopen(req)
-    link=response.read()
-    response.close()
-    
+def log(txt):
+    """
+    Write text to Kodi log file.
+    :param txt: text to write
+    :type txt: str
+    """
+    message = '%s: %s' % (ADDON_NAME, txt.encode('ascii', 'ignore'))
+    xbmc.log(msg=message, level=xbmc.LOGNOTICE)
+
+def notify(message):
+    """
+    Execute built-in GUI Notification
+    :param message: message to display
+    :type message: str
+    """
+    command = 'XBMC.Notification("%s", "%s", %s)' % (ADDON_NAME, message , 5000)
+    xbmc.executebuiltin(comman)
+
+def httpRequest(url, method = 'get'):
+    """
+    Request a web page or head info from url.
+    :param url: Fully-qualified URL of resource
+    :type url: str
+    :param method: currently, 'head' or 'get' (default)
+    :type method: str
+    """
+    #log( "httpRequest URL: %s" % str(url) )
+
+    user_agent = ['Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+                  'AppleWebKit/537.36 (KHTML, like Gecko)',
+                  'Chrome/55.0.2883.87',
+                  'Safari/537.36']
+    user_agent = ' '.join(user_agent)
+    headers = {'User-Agent':user_agent, 
+               'Accept':"text/html", 
+               'Accept-Encoding':'gzip,deflate,sdch', 
+               'Accept-Language':'en-US,en;q=0.8'
+                } 
+
+    req = urllib2.Request(url.encode('utf-8'), None, headers)
+    if method is 'head': req.get_method = lambda : 'HEAD'
     try:
-        appdg = after.split('&')[1]
-        before = after.split('&')[0]
-        appdg = int(appdg.split('=')[1]) + 1
-        newURL = before + "&page=" + str(appdg)
-    except:
-        newURL = after + "&page=2"
-        appdg = 2
-    addDir("Go To Page " + str(appdg), newURL, 1, "")
-    
-    match=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', link)
-    for url,thumbnail,name in match:
-        # Convert utf8-encoded 'name' string to unicode to prevent errors.
-        # Also ignore unrecognized characters.
-        name = unicode(name, 'utf-8', errors='ignore')
-
-        # Strip any dangling whitespace and decode (possibly double-stacked) html entities.
-        h = HTMLParser()
-        name = h.unescape(h.unescape(name.strip()))
-
-        # Convert back to utf-8 for output
-        name = name.encode('utf-8')
-        
-        req = urllib2.Request(url)
-        req.add_header('User-Agent', 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36')
         response = urllib2.urlopen(req)
-        link=response.read()
+        if method is 'head':
+            text = response.info()
+        else:
+            text = response.read()
         response.close()
-        
-        match = re.findall('<source src="(.+?)".*$', link, re.MULTILINE)
-        for url in match:
-            addLink(name, url, thumbnail, "")
-        match = re.findall('src="//www.youtube.com/embed/(.+?)\?rel=0.*$', link, re.MULTILINE)
-        for url in match:
-            youtubeurl = 'plugin://plugin.video.youtube/play/?video_id=%s' % url
-            addLink(name, youtubeurl, thumbnail, "")
+    except:
+        text = None
 
-def addLink(name,url,iconimage,urlType):
-    ok=True
-    liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=iconimage)
-    liz.setInfo( type="Video", infoLabels={ "Title": name } )
-    liz.setProperty('IsPlayable','true')
-    ok=xbmcplugin.addDirectoryItem(handle=int(ADDON_HANDLE),url=url,listitem=liz)
-    return ok
-
+    return(text)
 
 def addSearch():
     searchStr = ''
@@ -96,59 +89,146 @@ def addSearch():
     else:
         return searchStr
 
-
-def addDir(name,url,mode,iconimage):
-    u=BASE_URL+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)\
-        +"&name="+urllib.quote_plus(name)
-    ok=True
-    liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-    liz.setInfo( type="Video", infoLabels={ "Title": name } )
-    ok=xbmcplugin.addDirectoryItem(handle=int(ADDON_HANDLE),url=u,listitem=liz,isFolder=True)
-    return ok
+def addDir(name, queryString):
+    if 'browse?' not in queryString:
+        queryString = 'browse?' + queryString
+    u="%s?mode=indx&url=%s" % (BASE_URL, qp(queryString))
+    liz=xbmcgui.ListItem(name)
+    liz.setInfo(type="Video", infoLabels={"Title": name})
+    xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=u,listitem=liz,isFolder=True)
 
 
+# --- GUI director (Main Event) functions ---
+
+def categories():
+    addDir('Popular', 'popular')
+    addDir('Featured', 'featured=1')
+    addDir('News & Politics', 'channel_token=04c_1302956196')
+    addDir('Yoursay', 'channel_token=1b3_1302956579')
+    addDir('Must See', 'channel_token=9ee_1303244161')
+    addDir('Syria', 'channel_token=cf3_1304149308')
+    addDir('Iraq', 'channel_token=e8a_1302956438')
+    addDir('Afghanistan', 'channel_token=79f_1302956483')
+    addDir('Entertainment', 'channel_token=51a_1302956523')
+    addDir('Search', 'q=')
+    
+def index(url):
+    if url=="browse?q=":
+        searchString = addSearch()
+        url="browse?q="+searchString
+
+    # Flesh out paging
+    try:
+        appdg = url.split('&')[1] # 'page=X'
+        before = url.split('&')[0] # original category path
+        pageNumber = str(int(appdg.split('=')[1]) + 1) # increment page number
+        pagedURL = before + "&page=" + pageNumber # reassemble paged url
+    except:
+        pageNumber = '2'
+        pagedURL = url + "&page=" + pageNumber
+
+    url = domain_home + url
+    page = httpRequest(url)
+    match=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', page)
+    iList = []
+    for url,thumbnail,name in match:
+        # For 'name': handle unicode, strip dangling whitespace,
+        # decode (possibly double-stacked) html entities, and revert to utf-8
+        name = unicode(name, 'utf-8', errors='ignore')
+        name = h.unescape(h.unescape(name.strip()))
+        name = name.encode('utf-8')
+        
+        page = httpRequest(url)
+        # Consolidate liveleak and Youtube video sources
+        liveleakRegexp = r'<source src="(.+?)".*$'
+        youtubeRegexp = r'src="//www.youtube.com/embed/(.+?)\?rel=0.*$'
+        Regexp = r'%s|%s' % (liveleakRegexp, youtubeRegexp)
+
+        match = re.findall(Regexp, page, re.MULTILINE)
+        if match:
+            for idx, item in enumerate(match):
+                videoNum = ""
+                if len(match) > 1:
+                    videoNum = " (%s)" % str(idx + 1)
+                item = reduce( (lambda x, y: x + y), item) # Discard unmatched RE
+                if 'cdn.liveleak.com' in item:
+                    # Capture source of this item
+                    src = url.replace(domain_home, '').encode('utf-8')
+                    item = '%s?mode=play&url=%s&src=%s' % (BASE_URL, qp(item), qp(src))
+                else:
+                    item = 'plugin://plugin.video.youtube/play/?video_id=%s' % item
+                
+                # Build list item
+                liz=xbmcgui.ListItem(name)
+                liz.setInfo(type="Video", infoLabels={"Title": name})
+                liz.addStreamInfo('video', {'codec': 'h264'})
+                liz.setArt( {'thumb': thumbnail, 'icon': thumbnail} )
+                liz.setProperty('IsPlayable', 'true')
+                iList.append((item, liz, False))
+
+    xbmcplugin.addDirectoryItems(ADDON_HANDLE, iList, len(iList))
+    addDir("Go To Page " + pageNumber, pagedURL)
+
+def playVideo(url, src):
+    """
+    Play a video by the provided time-based url,
+    or fetch new, time-based url from src.
+    :param url: Fully-qualified video URL
+    :type url: str
+    :param src: path of page at domain_home containing video URL
+    :type src: str
+    """
+    # Check if time-based video URL has not expired
+    info = httpRequest(url, 'head')
+    
+    if info is None or 'Content-Type' not in info:
+        notify("The server is not cooperating")
+        return False
+        
+    if 'text/html' in info['Content-Type']:
+        # Re-fetch time-based link
+        regexp = r'src="(%s\?.+?)"' % url.split('?')[0]
+        page = httpRequest(domain_home + src)
+        match = re.search(regexp, page)
+        if match:
+            url = match.group(1)
+        else:
+            notify("Video has disappeared")
+            return False
+    
+    # Create a playable item with a url to play.
+    play_item = xbmcgui.ListItem(path=url)
+    # Pass the item to the Kodi player.
+    xbmcplugin.setResolvedUrl(ADDON_HANDLE, True, listitem=play_item)
+
+
+# ------------------
 # --- Main Event ---
+# ------------------
 
-# Get any provided query string
-params = sys.argv[2][1:]
-if len(params) < 2: # No query string provided
-    mode = None # No mode, default to categories
-    name = None # Define to prevent errors
-    url = None # ... ditto
-else: # Parse the query string
-    # Strip any trailing '/'
-    if params[-1] == '/': params = params[:-1]
+# Parse query string into dictionary
+try:
+    params = urlparse.parse_qs(sys.argv[2][1:])
+    for key in params:
+        params[key] = params[key][0] # Reduce one-item list to string
+        try: params[key] = uqp(params[key]).decode('utf-8')
+        except: pass
+except:
+    parms = {}
 
-    # Parse query string into dictionary as {"key": [list-of-one]}
-    params = urlparse.parse_qs(params)
+# What do to?
+mode = params.get('mode', None)
 
-    # Get list for parameter keys defaulting to None if nonexistent
-    mode = params.get('mode', None)
-    name = params.get('name', None)
-    url = params.get('url', None)
+if mode is None: categories()
 
-    # Get the only 'mode' list item and cast to int
-    if mode is not None: mode = int(mode[0]) 
+elif mode == 'indx':
+    url = params.get('url', None) # URL of index folder
+    if url: index(url)
 
-    # Decode any %xx in the only 'name' list item
-    if name is not None:
-        name = urllib.unquote_plus(params["name"][0]) 
-
-    # Decode any %xx in the only 'url' list item
-    if url is not None:
-        url = urllib.unquote_plus(params["url"][0])
-
-#xbmc.log( "LIVELEAK-> Mode: "+str(mode)+", Name: "+str(name)+", URL: "+str(url) )
+elif mode == 'play':
+    url = params.get('url', None) # URL of video source
+    src = params.get('src', None) # path of page containing video URL
+    if url and src: playVideo(url, src)
 
 
-if mode is None or url is None or len(url) < 1:
-    categories()
-
-elif mode == 1:
-    index(url)
-
-elif mode == 2:
-    addSearch()
-
-
-xbmcplugin.endOfDirectory(int(ADDON_HANDLE))
+xbmcplugin.endOfDirectory(ADDON_HANDLE)

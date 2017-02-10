@@ -1,3 +1,8 @@
+v0.0.7 (2017-2-9)
+- Add support for expired time-based links
+- Add better video numbering
+- Various code cleanup, enhancement, refactoring
+
 v0.0.6 (2017-2-5)
 - Remove problematic video numbering, plus various cleanup
 
