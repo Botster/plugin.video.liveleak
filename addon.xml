@@ -4,14 +4,14 @@
     version="0.0.7"
     provider-name="Botster">
     <requires>
-        <import addon="xbmc.python" version="2.6.0"/>
+        <import addon="xbmc.python" version="2.24.0"/>
     </requires>
     <extension point="xbmc.python.pluginsource" library="default.py">
         <provides>video</provides>
     </extension>
     <extension point="xbmc.addon.metadata">
-        <summary lang="en">Watch LiveLeak.com Videos</summary>
-        <description lang="en">Redefining The Media</description>
+        <summary lang="en_GB">Watch LiveLeak.com Videos</summary>
+        <description lang="en_GB">Redefining The Media</description>
         <language>en</language>
         <platform>all</platform>
         <license>GNU General Public License Version 3</license>

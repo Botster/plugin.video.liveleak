@@ -8,7 +8,7 @@ import xbmc, xbmcplugin, xbmcgui, xbmcaddon
 # Identifiers
 BASE_URL = sys.argv[0]
 ADDON_HANDLE = int(sys.argv[1])
-addon         = xbmcaddon.Addon('plugin.video.liveleak')
+addon         = xbmcaddon.Addon()
 ADDON_NAME = addon.getAddonInfo('name')
 
 # Convenience
@@ -31,7 +31,7 @@ def log(txt):
     :type txt: str
     """
     message = '%s: %s' % (ADDON_NAME, txt.encode('ascii', 'ignore'))
-    xbmc.log(msg=message, level=xbmc.LOGNOTICE)
+    xbmc.log(msg=message, level=xbmc.LOGDEBUG)
 
 def notify(message):
     """
@@ -159,8 +159,8 @@ def index(url):
                     item = 'plugin://plugin.video.youtube/play/?video_id=%s' % item
                 
                 # Build list item
-                liz=xbmcgui.ListItem(name)
-                liz.setInfo(type="Video", infoLabels={"Title": name})
+                liz=xbmcgui.ListItem(name + videoNum)
+                liz.setInfo(type="Video", infoLabels={"Title": name + videoNum})
                 liz.addStreamInfo('video', {'codec': 'h264'})
                 liz.setArt( {'thumb': thumbnail, 'icon': thumbnail} )
                 liz.setProperty('IsPlayable', 'true')
