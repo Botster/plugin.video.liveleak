@@ -40,7 +40,7 @@ def notify(message):
     :type message: str
     """
     command = 'XBMC.Notification("%s", "%s", %s)' % (ADDON_NAME, message , 5000)
-    xbmc.executebuiltin(comman)
+    xbmc.executebuiltin(command)
 
 def httpRequest(url, method = 'get'):
     """
