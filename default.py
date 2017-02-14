@@ -214,7 +214,7 @@ try:
         try: params[key] = uqp(params[key]).decode('utf-8')
         except: pass
 except:
-    parms = {}
+    params = {}
 
 # What do to?
 mode = params.get('mode', None)
