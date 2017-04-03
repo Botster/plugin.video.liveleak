@@ -186,8 +186,12 @@ def index(url):
 
 def viewPlay(url):
     url = uqp(url) # Decode html quoted/encoded url
+    
+    # Acceptable URL patterns
+    url_patterns = [r'liveleak.com/view?', r'liveleak.com/ll_embed?']
+
     # Verify it's actually a "view" page
-    if 'liveleak.com/view?i=' not in url:
+    if not any(x in url for x in url_patterns):
         notify("Invalid URL format")
         return
 
