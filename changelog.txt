@@ -1,3 +1,8 @@
+v1.0.0 (2017-4-2)
+- Add "view" mode for calling from another plugin
+- Add "Back To Categories" directory item
+- Update version number more inline w/ Semantic Versioning
+
 v0.0.7 (2017-2-9)
 - Add support for expired time-based links
 - Add better video numbering
