@@ -186,7 +186,7 @@ def index(url):
 
 def viewPlay(url):
     # Verify it's actually a "view" page
-    if domain_home+'view?i=' not in url:
+    if 'liveleak.com/view?i=' not in url:
         notify("Invalid URL format")
         return
 
