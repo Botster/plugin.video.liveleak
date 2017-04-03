@@ -185,16 +185,12 @@ def index(url):
     xbmcplugin.endOfDirectory(ADDON_HANDLE)
 
 def viewPlay(url):
+    url = uqp(url) # Decode html quoted/encoded url
     # Verify it's actually a "view" page
     if 'liveleak.com/view?i=' not in url:
         notify("Invalid URL format")
         return
 
-    pattern = re.compile("^[a-f0-9_]+$")
-    if not pattern.match(url.split('=', 1)[-1]):
-        notify("Invalid URL format")
-        return
-    
     match = findAllMediaItems(url) # findall match object
     if match:
         # Play first matching media item
