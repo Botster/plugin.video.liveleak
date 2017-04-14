@@ -105,6 +105,10 @@ def addDir(name, queryString):
 
 def findAllMediaItems(url):
     page = httpRequest(url)
+    if page is None:
+        notify("The server is not cooperating")
+        return False
+        
     # Consolidate liveleak and Youtube video sources
     liveleakRegexp = r'<source src="(.+?)".*$'
     youtubeRegexp = r'src="//www.youtube.com/embed/(.+?)\?rel=0.*$'
