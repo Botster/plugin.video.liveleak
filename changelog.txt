@@ -1,3 +1,6 @@
+v1.0.1 (2017-4-14)
+- Fix uncaught error on empty server response
+
 v1.0.0 (2017-4-2)
 - Add "view" mode for calling from another plugin
 - Add "Back To Categories" directory item
