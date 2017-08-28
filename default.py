@@ -36,7 +36,7 @@ def log(txt, level='debug'):
         }
     logLevel = levels.get(level, xbmc.LOGDEBUG)
     
-    message = '%s: %s' % (ADDON_NAME, txt.encode('ascii', 'ignore'))
+    message = '%s: %s' % (ADDON_NAME, txt)
     xbmc.log(msg=message, level=logLevel)
 
 def notify(message):
@@ -47,6 +47,11 @@ def notify(message):
     """
     command = 'XBMC.Notification("%s", "%s", %s)' % (ADDON_NAME, message , 5000)
     xbmc.executebuiltin(command)
+
+def cleanhtml(raw_html):
+    cleanr = re.compile('<.*?>')
+    cleantext = re.sub(cleanr, '', raw_html)
+    return cleantext
 
 def httpRequest(url, method = 'get'):
     """
@@ -103,12 +108,7 @@ def addDir(name, queryString):
     liz.setInfo(type="Video", infoLabels={"Title": name})
     xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=u,listitem=liz,isFolder=True)
 
-def findAllMediaItems(url):
-    page = httpRequest(url)
-    if page is None:
-        notify("The server is not cooperating")
-        return False
-        
+def findAllMediaItems(page):
     # Consolidate liveleak and Youtube video sources
     liveleakRegexp = r'<source src="(.+?)".*$'
     youtubeRegexp = r'src="//www.youtube.com/embed/(.+?)\?rel=0.*$'
@@ -150,6 +150,9 @@ def index(url):
 
     url = domain_home + url
     page = httpRequest(url)
+    if page is None:
+        notify("The server is not cooperating at the moment")
+        return
     match=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', page)
     iList = []
     for url,thumbnail,name in match:
@@ -159,7 +162,29 @@ def index(url):
         name = h.unescape(h.unescape(name.strip()))
         name = name.encode('utf-8')
         
-        match = findAllMediaItems(url) # findall match object
+        page = httpRequest(url)
+        if page is None:
+            notify("The server is not cooperating at the moment")
+            return
+       # Get id of liveleak user that posted
+        credit = re.findall(r'By:</strong>\s?<a href=".+?">(.+?)</a>', page)
+        if credit:
+            credit = unicode(credit[0], 'utf-8', errors='ignore')
+            credit = h.unescape(h.unescape(credit.strip()))
+            credit = "Posted by " + credit
+            credit = credit.encode('utf-8')
+        else:
+            credit = ""
+        # Get post description
+        description = re.findall(r'<div id="body_text">(.+?)</div>', page, re.DOTALL)
+        if description:
+            description = unicode(description[0], 'utf-8', errors='ignore')
+            description = h.unescape(h.unescape(description.strip()))
+            description = cleanhtml(description)
+            description = description.encode('utf-8')
+        else:
+            description = ""
+        match = findAllMediaItems(page) # findall match object
         if match:
             for idx, item in enumerate(match):
                 videoNum = ""
@@ -175,7 +200,7 @@ def index(url):
                 
                 # Build list item
                 liz=xbmcgui.ListItem(name + videoNum)
-                liz.setInfo(type="Video", infoLabels={"Title": name + videoNum})
+                liz.setInfo(type="Video", infoLabels={"title": name + videoNum, "credits": credit, "plot": description})
                 liz.addStreamInfo('video', {'codec': 'h264'})
                 liz.setArt( {'thumb': thumbnail, 'icon': thumbnail} )
                 liz.setProperty('IsPlayable', 'true')
@@ -227,7 +252,7 @@ def playVideo(url, src):
     info = httpRequest(url, 'head')
     
     if info is None or 'Content-Type' not in info:
-        notify("The server is not cooperating")
+        notify("The server is not cooperating at the moment")
         return False
         
     if 'text/html' in info['Content-Type']:
