@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Standard libraries
 import urllib, urllib2, urlparse, re
 from HTMLParser import HTMLParser
@@ -48,10 +50,17 @@ def notify(message):
     command = 'XBMC.Notification("%s", "%s", %s)' % (ADDON_NAME, message , 5000)
     xbmc.executebuiltin(command)
 
-def cleanhtml(raw_html):
-    cleanr = re.compile('<.*?>')
-    cleantext = re.sub(cleanr, '', raw_html)
-    return cleantext
+def cleanHtml(raw_html):
+    pseudo_html = re.sub(r'<br />', '[[br]]', raw_html)
+    pseudo_html = re.sub(r'</p>', '[[p]]', pseudo_html)
+    raw_text = re.sub(r'<script.*?/script>', '', pseudo_html, flags=re.DOTALL)
+    raw_text = re.sub(r'<script.*?/script>', '', raw_text, flags=re.DOTALL)
+    raw_text = re.sub(r'<style.*?/style>', '', raw_text, flags=re.DOTALL)
+    raw_text = re.sub(r'<.*?>', '', raw_text, flags=re.DOTALL)
+    clean_text = re.sub(r'\s{2,}', '', raw_text)
+    reformatted_text = clean_text.replace('[[br]]', '\n')
+    reformatted_text = reformatted_text.replace('[[p]]', '\n\n')
+    return reformatted_text
 
 def httpRequest(url, method = 'get'):
     """
@@ -180,7 +189,7 @@ def index(url):
         if description:
             description = unicode(description[0], 'utf-8', errors='ignore')
             description = h.unescape(h.unescape(description.strip()))
-            description = cleanhtml(description)
+            description = cleanHtml(description)
             description = description.encode('utf-8')
         else:
             description = ""
