@@ -1,23 +1,59 @@
 # -*- coding: utf-8 -*-
 
-# Standard libraries
-import urllib, urllib2, urlparse, re
-from HTMLParser import HTMLParser
+# Standard libraries - Python 2 & 3
+import re, requests
+from multiprocessing.dummy import Pool, cpu_count
+
+try: # Python 3
+    import html
+except: # Python 2
+    from HTMLParser import HTMLParser
+    
+try: # Python 3
+    from urllib import parse
+except: # Python 2
+    import urllib, urlparse
 
 # Kodi libraries
 import xbmc, xbmcplugin, xbmcgui, xbmcaddon
 
 # Identifiers
-BASE_URL = sys.argv[0]
+BASE_URL = sys.argv[0].encode('utf-8')
 ADDON_HANDLE = int(sys.argv[1])
 addon         = xbmcaddon.Addon()
 ADDON_NAME = addon.getAddonInfo('name')
 
 # Convenience
-h = HTMLParser()
-qp = urllib.quote_plus
-uqp = urllib.unquote_plus
+try: # Python 3
+    un_escape = html.unescape
+except: # Python 2
+    un_escape = HTMLParser().unescape
 
+try: # Python 3
+    qp = parse.quote_plus
+    uqp = parse.unquote_plus
+    p_qsl = parse.parse_qsl
+except: # Python 2
+    qp = urllib.quote_plus
+    uqp = urllib.unquote_plus
+    p_qsl = urlparse.parse_qsl
+
+# HTTP constants
+user_agent = ['Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
+                'AppleWebKit/537.36 (KHTML, like Gecko)',
+                'Chrome/55.0.2883.87',
+                'Safari/537.36']
+user_agent = ' '.join(user_agent)
+http_headers = {'User-Agent':user_agent, 
+            'Accept':"text/html", 
+            'Accept-Encoding':'identity', 
+            'Accept-Language':'en-US,en;q=0.8',
+            'Accept-Charset':'utf-8'
+            }
+
+http_timeout = 10
+
+# Where our targets live
 domain_home = "https://www.liveleak.com/"
 
 # -----------------
@@ -33,11 +69,12 @@ def log(txt, level='debug'):
     :type txt: str
     """
     levels = {
-        'notice': xbmc.LOGNOTICE,
-        'error': xbmc.LOGERROR
+        'debug': xbmc.LOGDEBUG,
+        'error': xbmc.LOGERROR,
+        'notice': xbmc.LOGNOTICE
         }
     logLevel = levels.get(level, xbmc.LOGDEBUG)
-    
+
     message = '%s: %s' % (ADDON_NAME, txt)
     xbmc.log(msg=message, level=logLevel)
 
@@ -62,41 +99,6 @@ def cleanHtml(raw_html):
     reformatted_text = reformatted_text.replace('[[p]]', '\n\n')
     return reformatted_text
 
-def httpRequest(url, method = 'get'):
-    """
-    Request a web page or head info from url.
-    :param url: Fully-qualified URL of resource
-    :type url: str
-    :param method: currently, 'head' or 'get' (default)
-    :type method: str
-    """
-    #log("httpRequest URL: %s" % str(url), 'notice' )
-
-    user_agent = ['Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
-                  'AppleWebKit/537.36 (KHTML, like Gecko)',
-                  'Chrome/55.0.2883.87',
-                  'Safari/537.36']
-    user_agent = ' '.join(user_agent)
-    headers = {'User-Agent':user_agent, 
-               'Accept':"text/html", 
-               'Accept-Encoding':'gzip,deflate,sdch', 
-               'Accept-Language':'en-US,en;q=0.8'
-                } 
-
-    req = urllib2.Request(url.encode('utf-8'), None, headers)
-    if method is 'head': req.get_method = lambda : 'HEAD'
-    try:
-        response = urllib2.urlopen(req)
-        if method is 'head':
-            text = response.info()
-        else:
-            text = response.read()
-        response.close()
-    except:
-        text = None
-
-    return(text)
-
 def addSearch():
     searchStr = ''
     keyboard = xbmc.Keyboard(searchStr, 'Search')
@@ -109,12 +111,13 @@ def addSearch():
     else:
         return searchStr
 
-def addDir(name, queryString):
+def addDir(title, queryString):
     if 'browse?' not in queryString:
         queryString = 'browse?' + queryString
     u="%s?mode=indx&url=%s" % (BASE_URL, qp(queryString))
-    liz=xbmcgui.ListItem(name)
-    liz.setInfo(type="Video", infoLabels={"Title": name})
+    u=u.encode('utf-8')
+    liz=xbmcgui.ListItem(title)
+    liz.setInfo(type="Video", infoLabels={"Title": title})
     xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=u,listitem=liz,isFolder=True)
 
 def findAllMediaItems(page):
@@ -125,6 +128,54 @@ def findAllMediaItems(page):
 
     return re.findall(Regexp, page, re.MULTILINE)
 
+def fetchItemDetails((url, thumbnail, title)):
+    page = requests.get(url).text
+    if page is None: # Silently ignore the page
+        return None
+    # Get id of liveleak user that posted
+    credit = re.findall(r'By:</strong>\s?<a href=".+?">(.+?)</a>', page)
+    if credit:
+        credit = credit[0]
+    else:
+        credit = ""
+    # Get post description
+    description = re.findall(r'<div id="body_text">(.+?)</div>', page, re.DOTALL)
+    if description:
+        description = cleanHtml(description[0]) #Clean here to reduce footprint
+    else:
+        description = ""
+    
+    media = findAllMediaItems(page)
+    if media:
+        if len(media) > 1:
+            mediaList = []
+            for medium in media:
+                medium = reduce( (lambda x, y: x + y), medium) # Discard unmatched RE
+                mediaList.append((url, thumbnail, title, credit, description, medium))
+            return mediaList
+        else:
+            medium = reduce( (lambda x, y: x + y), media[0]) # Discard unmatched RE
+            return (url, thumbnail, title, credit, description, medium)
+
+def buildListItem((url, thumbnail, title, credit, description, medium)):
+    # Handle possibly multiple-coded html entities
+    title = un_escape(un_escape(title.strip()))
+
+    if 'cdn.liveleak.com' in medium:
+        # Capture source of this medium
+        src = url.replace(domain_home, '')
+        url = '%s?mode=play&url=%s&src=%s' % (BASE_URL, qp(medium), qp(src))
+    else:
+        url = 'plugin://plugin.video.youtube/play/?video_id=%s' % medium
+
+    # Build list item
+    liz=xbmcgui.ListItem(label=title, thumbnailImage=thumbnail)
+    liz.setInfo(type="Video", infoLabels={"title": title, "credits": credit, "plot": description})
+    liz.addStreamInfo('video', {'codec': 'h264'})
+    liz.setArt( {'thumb': thumbnail} )
+    liz.setProperty('IsPlayable', 'true')
+
+    return (url, liz)
 
 # --- GUI director (Main Event) functions ---
 
@@ -137,9 +188,10 @@ def categories():
     addDir('Syria', 'channel_token=cf3_1304149308')
     addDir('Iraq', 'channel_token=e8a_1302956438')
     addDir('Afghanistan', 'channel_token=79f_1302956483')
+    addDir('Ukraine', 'channel_token=b80_1390304670')
     addDir('Entertainment', 'channel_token=51a_1302956523')
     addDir('Search', 'q=')
-    
+
     xbmcplugin.endOfDirectory(ADDON_HANDLE)
 
 def index(url):
@@ -158,73 +210,46 @@ def index(url):
         pagedURL = url + "&page=" + nextPageNumber
 
     url = domain_home + url
-    page = httpRequest(url)
+    page = requests.get(url, headers=http_headers, timeout=http_timeout).text
     if page is None:
         notify("The server is not cooperating at the moment")
         return
-    match=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', page)
-    iList = []
-    for url,thumbnail,name in match:
-        # For 'name': handle unicode, strip dangling whitespace,
-        # decode (possibly double-stacked) html entities, and revert to utf-8
-        name = unicode(name, 'utf-8', errors='ignore')
-        name = h.unescape(h.unescape(name.strip()))
-        name = name.encode('utf-8')
-        
-        page = httpRequest(url)
-        if page is None:
-            notify("The server is not cooperating at the moment")
-            return
-       # Get id of liveleak user that posted
-        credit = re.findall(r'By:</strong>\s?<a href=".+?">(.+?)</a>', page)
-        if credit:
-            credit = unicode(credit[0], 'utf-8', errors='ignore')
-            credit = h.unescape(h.unescape(credit.strip()))
-            credit = "Posted by " + credit
-            credit = credit.encode('utf-8')
-        else:
-            credit = ""
-        # Get post description
-        description = re.findall(r'<div id="body_text">(.+?)</div>', page, re.DOTALL)
-        if description:
-            description = unicode(description[0], 'utf-8', errors='ignore')
-            description = h.unescape(h.unescape(description.strip()))
-            description = cleanHtml(description)
-            description = description.encode('utf-8')
-        else:
-            description = ""
-        match = findAllMediaItems(page) # findall match object
-        if match:
-            for idx, item in enumerate(match):
-                videoNum = ""
-                if len(match) > 1:
-                    videoNum = " (%s)" % str(idx + 1)
-                item = reduce( (lambda x, y: x + y), item) # Discard unmatched RE
-                if 'cdn.liveleak.com' in item:
-                    # Capture source of this item
-                    src = url.replace(domain_home, '').encode('utf-8')
-                    item = '%s?mode=play&url=%s&src=%s' % (BASE_URL, qp(item), qp(src))
-                else:
-                    item = 'plugin://plugin.video.youtube/play/?video_id=%s' % item
-                
-                # Build list item
-                liz=xbmcgui.ListItem(name + videoNum)
-                liz.setInfo(type="Video", infoLabels={"title": name + videoNum, "credits": credit, "plot": description})
-                liz.addStreamInfo('video', {'codec': 'h264'})
-                liz.setArt( {'thumb': thumbnail, 'icon': thumbnail} )
-                liz.setProperty('IsPlayable', 'true')
-                iList.append((item, liz, False))
 
-    xbmcplugin.addDirectoryItems(ADDON_HANDLE, iList, len(iList))
-    addDir("Go To Page " + nextPageNumber, pagedURL)
-    liz=xbmcgui.ListItem("Back To Categories")
-    xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=BASE_URL,listitem=liz,isFolder=True)
+    # Get list of individual posts from indexing page
+    posts=re.findall('<a href="(.+?)"><img class="thumbnail_image" src="(.+?)" alt="(.+?)"', page)
 
-    xbmcplugin.endOfDirectory(ADDON_HANDLE)
+    # Fetch post details via multiple threads
+    pool = Pool(cpu_count() * 4)
+    items = pool.map(fetchItemDetails, posts)
+    pool.close() 
+    pool.join()
+
+    if items:
+        iList = []
+        for item in items: #(url, thumbnail, title, credit, description, medium)
+            if isinstance(item, list): # Multiple media on the page
+                for idx, atom in enumerate(item):
+                    # Rebuild tuple with video number appended to title
+                    (url, thumbnail, title, credit, description, medium) = atom
+                    title = "%s (%d)" % (title, (idx + 1)) # Add vidNum
+                    atom = (url, thumbnail, title, credit, description, medium)
+                    (url, liz) = buildListItem(atom)
+                    iList.append((url.encode('utf-8'), liz, False))
+            else: # Single media item on the page; None if error from fetch
+                if item:
+                    (url, liz) = buildListItem(item)
+                    iList.append((url.encode('utf-8'), liz, False))
+
+        xbmcplugin.addDirectoryItems(ADDON_HANDLE, iList, len(iList))
+        addDir("Go To Page " + nextPageNumber, pagedURL)
+        liz=xbmcgui.ListItem("Back To Categories")
+        xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=BASE_URL,listitem=liz,isFolder=True)
+
+        xbmcplugin.endOfDirectory(ADDON_HANDLE)
 
 def viewPlay(url):
     url = uqp(url) # Decode html quoted/encoded url
-    
+
     # Acceptable URL patterns
     url_patterns = [r'liveleak.com/view?', r'liveleak.com/ll_embed?']
 
@@ -240,10 +265,10 @@ def viewPlay(url):
         item = reduce( (lambda x, y: x + y), item) # Discard unmatched RE
         if not 'cdn.liveleak.com' in item:
             item = 'plugin://plugin.video.youtube/play/?video_id=%s' % item
-        play_item = xbmcgui.ListItem(path=item)
+        play_item = xbmcgui.ListItem(path=item.encode('utf-8'))
         # Pass the item to the Kodi player.
         xbmcplugin.setResolvedUrl(ADDON_HANDLE, True, listitem=play_item)
-        
+
     else:
         notify("Sorry, no playable media found.")
         return
@@ -258,23 +283,23 @@ def playVideo(url, src):
     :type src: str
     """
     # Check if time-based video URL has not expired
-    info = httpRequest(url, 'head')
-    
-    if info is None or 'Content-Type' not in info:
+    response = requests.head(url, headers=http_headers, timeout=http_timeout)
+    content_type = response.headers.get('content-type')
+
+    if content_type is None or u'text/html' not in content_type:
         notify("The server is not cooperating at the moment")
         return False
-        
-    if 'text/html' in info['Content-Type']:
-        # Re-fetch time-based link
-        regexp = r'src="(%s\?.+?)"' % url.split('?')[0]
-        page = httpRequest(domain_home + src)
-        match = re.search(regexp, page)
-        if match:
-            url = match.group(1)
-        else:
-            notify("Video has disappeared")
-            return False
-    
+
+    # Re-fetch time-based link
+    regexp = r'src="(%s\?.+?)"' % url.split('?')[0]
+    page = requests.get(domain_home + src, headers=http_headers, timeout=http_timeout).text
+    match = re.search(regexp, page)
+    if match:
+        url = match.group(1)
+    else:
+        notify("Video has disappeared")
+        return False
+
     # Create a playable item with a url to play.
     play_item = xbmcgui.ListItem(path=url)
     # Pass the item to the Kodi player.
@@ -287,9 +312,8 @@ def playVideo(url, src):
 
 # Parse query string into dictionary
 try:
-    params = urlparse.parse_qs(sys.argv[2][1:])
+    params = dict(p_qsl(sys.argv[2][1:]))
     for key in params:
-        params[key] = params[key][0] # Reduce one-item list to string
         try: params[key] = uqp(params[key]).decode('utf-8')
         except: pass
 except:

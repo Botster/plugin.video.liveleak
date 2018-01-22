@@ -1,3 +1,6 @@
+v1.2.0 (2018-1-21)
+- Implement threading for multiple page fetches for improved performance
+
 v1.1.1 (2018-1-17)
 - Upgrade handling of video description Info
 
