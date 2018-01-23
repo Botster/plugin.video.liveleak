@@ -88,6 +88,8 @@ def notify(message):
     xbmc.executebuiltin(command)
 
 def cleanHtml(raw_html):
+    #Decod HTML entities
+    raw_html = un_escape(un_escape(raw_html))
     pseudo_html = re.sub(r'<br />', '[[br]]', raw_html)
     pseudo_html = re.sub(r'</p>', '[[p]]', pseudo_html)
     raw_text = re.sub(r'<script.*?/script>', '', pseudo_html, flags=re.DOTALL)
@@ -286,19 +288,20 @@ def playVideo(url, src):
     response = requests.head(url, headers=http_headers, timeout=http_timeout)
     content_type = response.headers.get('content-type')
 
-    if content_type is None or u'text/html' not in content_type:
+    if content_type is None:
         notify("The server is not cooperating at the moment")
         return False
 
-    # Re-fetch time-based link
-    regexp = r'src="(%s\?.+?)"' % url.split('?')[0]
-    page = requests.get(domain_home + src, headers=http_headers, timeout=http_timeout).text
-    match = re.search(regexp, page)
-    if match:
-        url = match.group(1)
-    else:
-        notify("Video has disappeared")
-        return False
+    if 'text/html' in content_type: # Link has expired else would be video type
+        # Re-fetch time-based link
+        regexp = r'src="(%s\?.+?)"' % url.split('?')[0]
+        page = requests.get(domain_home + src, headers=http_headers, timeout=http_timeout).text
+        match = re.search(regexp, page)
+        if match:
+            url = match.group(1)
+        else:
+            notify("Video has disappeared")
+            return False
 
     # Create a playable item with a url to play.
     play_item = xbmcgui.ListItem(path=url)
