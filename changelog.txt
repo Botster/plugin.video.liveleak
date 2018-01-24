@@ -1,3 +1,6 @@
+v1.3.0 (2018-1-23)
+- Add ability to moderate Liveleak users' postings
+
 v1.2.0 (2018-1-21)
 - Implement threading for multiple page fetches for improved performance
 
