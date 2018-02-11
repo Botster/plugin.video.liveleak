@@ -4,6 +4,7 @@
 import re, requests, json
 from os import path
 from multiprocessing.dummy import Pool
+from bs4 import BeautifulSoup
 
 try: # Python 3
     from html import unescape
@@ -76,20 +77,6 @@ def notify(message):
     command = 'XBMC.Notification("%s","%s",%s)' % (ADDON_NAME, message, 5000)
     xbmc.executebuiltin(command)
 
-def cleanHtml(raw_html):
-    # Hack to strip HTML from text and reformat with linebreaks
-    raw_html = unescape(unescape(raw_html)) #Decode HTML entities
-    pseudo_html = re.sub(r'<br />', '[[br]]', raw_html)
-    pseudo_html = re.sub(r'</p>', '[[p]]', pseudo_html)
-    raw_text = re.sub(r'<script.*?/script>', '', pseudo_html, flags=re.DOTALL)
-    raw_text = re.sub(r'<script.*?/script>', '', raw_text, flags=re.DOTALL)
-    raw_text = re.sub(r'<style.*?/style>', '', raw_text, flags=re.DOTALL)
-    raw_text = re.sub(r'<.*?>', '', raw_text, flags=re.DOTALL)
-    clean_text = re.sub(r'\s{2,}', '', raw_text)
-    reformatted_text = clean_text.replace('[[br]]', '\n')
-    reformatted_text = reformatted_text.replace('[[p]]', '\n\n')
-    return reformatted_text
-
 def buildUrl(query):
     return BASE_URL + '?' + urlencode(query).encode('utf-8')
 
@@ -111,10 +98,15 @@ def fetchItemDetails((url, thumbnail, title)):
         credit = credit[0]
     else:
         credit = ""
-    # Get post description
+    # Get post description & strip here to reduce footprint
     description = re.findall(r'<div id="body_text">(.+?)</div>', page, re.DOTALL)
     if description:
-        description = cleanHtml(description[0]) #Clean here to reduce footprint
+        soup = BeautifulSoup(description[0], "html.parser")
+        for script in soup("script"):
+            script.decompose()
+        for style in soup("style"):
+            style.decompose()
+        description = "\n\n".join(soup.stripped_strings)
     else:
         description = ""
     
@@ -376,14 +368,14 @@ elif mode == 'mod_user':
             message = "Setting not changed."
         else:
             if choice == 0:
-                message = "Will be displayed normally on next page load."
+                message = "... will be displayed normally on next page load."
             elif choice == 1:
-                message = "Will be highlighted on next page load."
+                message = "... will be highlighted on next page load."
             elif choice == 2:
-                message = "Will be subdued on next page load."
+                message = "... will be subdued on next page load."
 
             leakPosters[user] = choice
             if not saveLeakPosters(leakPosters):
                 message = "Error saving setting."
 
-        xbmcgui.Dialog().ok("Postings by %s:" % user, message)
+        xbmcgui.Dialog().ok("Postings by %s ..." % user, message)
