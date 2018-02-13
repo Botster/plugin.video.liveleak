@@ -106,7 +106,7 @@ def fetchItemDetails((url, thumbnail, title)):
             script.decompose()
         for style in soup("style"):
             style.decompose()
-        description = "\n\n".join(soup.stripped_strings)
+        description = soup.get_text()
     else:
         description = ""
     
