@@ -3,8 +3,14 @@
 # Standard libraries - Python 2 & 3
 import re, requests, json
 from os import path
-from multiprocessing.dummy import Pool
 from bs4 import BeautifulSoup as bs
+
+# Fallback if multiprocessing module is not available
+slow_mode = False
+try:
+    from multiprocessing.dummy import Pool
+except:
+    slow_mode = True
 
 try: # Python 3
     from html import unescape
@@ -259,11 +265,18 @@ def index(url):
         meta['credit'] = item.find('div', class_='featured_text_con').a.get_text()
         posts.append((url, meta))
 
-    # Fetch post details via multiple threads
-    pool = Pool(8)
-    items = pool.map(fetchItemDetails, posts)
-    pool.close() 
-    pool.join()
+    # Fallback to slow mode?
+    if slow_mode:
+        # Fetch post details via loop
+        items = []
+        for post in posts:
+            items.append(fetchItemDetails(post))
+    else:
+        # Fetch post details via multiple threads
+        pool = Pool(8)
+        items = pool.map(fetchItemDetails, posts)
+        pool.close() 
+        pool.join()
 
     if items:
         iList = []

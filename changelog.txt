@@ -1,3 +1,6 @@
+v1.3.3 (2018-3-11)
+- Add fallback for multiprocessing module not available
+
 v1.3.2 (2018-3-9)
 - Adapt after Liveleak.com upgrade
 
