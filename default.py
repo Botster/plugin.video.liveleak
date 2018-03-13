@@ -111,7 +111,7 @@ def fetchItemDetails((url, meta)):
     page = requests.get(url)
 
     if page.status_code != requests.codes.ok: # Uh-oh!
-        log("Error: %s: %s" % (page.status_code, url), 'notice')
+        log("Error: %s: %s" % (page.status_code, url))
         return
 
     # Reduce page to video information block
@@ -181,7 +181,7 @@ def saveLeakPosters(leakPosters):
             f.write(json.dumps(leakPosters))
         return True
     except Exception as e:
-        log(e, 'notice')
+        log(e)
         return False
 
 def loadLeakPosters():
