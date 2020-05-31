@@ -1,45 +1,75 @@
 # -*- coding: utf-8 -*-
 
+from __future__ import unicode_literals
+
 # Standard libraries - Python 2 & 3
-import sys, re, time, requests, json
+import sys, io, re, time, requests, json
 from os import path
 from bs4 import BeautifulSoup as bs
 
-# Fallback if multiprocessing module is not available
-slow_mode = False
-try:
-    from multiprocessing.dummy import Pool
-except:
-    slow_mode = True
+if sys.platform.startswith('win'): # For file function argument discrimination
+    WIN = True
+else:
+    WIN = False
 
 # Do LBYL version identity instead of idiomatic EAFP
 if sys.version_info.major > 2: # Python 3
+    PY2 = False
     from html import unescape
     from urllib.parse import quote_plus, unquote_plus, urlencode
     from urllib.parse import parse_qsl, urlparse, urlunparse
 else: # Python 2
+    PY2 = True
     from HTMLParser import HTMLParser
     from urllib import quote_plus, unquote_plus, urlencode
     from urlparse import parse_qsl, urlparse, urlunparse
     unescape = HTMLParser().unescape # Standardize unescape function name
 
-#TODO: Implement universal unicode conversion functions for Python 2/3
+# Universal unicode conversion functions for Python 2/3. Defined here for early use.
+def py23_encode(s, encoding='utf-8'):
+   if PY2 and isinstance(s, unicode):
+       s = s.encode(encoding)
+   return s
+
+
+def py23_decode(s, encoding='utf-8'):
+   if PY2 and isinstance(s, str):
+       s = s.decode(encoding)
+   return s
+
+
+# Fallback if multiprocessing module is not available
+slow_mode = False
+try:
+    from multiprocessing.dummy import Pool, cpu_count
+except:
+    slow_mode = True
 
 # Kodi libraries
-import xbmc, xbmcplugin, xbmcgui, xbmcaddon
+import xbmc, xbmcplugin, xbmcgui, xbmcaddon, xbmcvfs
 
 # Identifiers
-BASE_URL = sys.argv[0].encode('utf-8')
+BASE_URL = py23_decode(sys.argv[0])
 ADDON_HANDLE = int(sys.argv[1])
 addon         = xbmcaddon.Addon()
-ADDON_NAME = addon.getAddonInfo('name')
-ADDON_PROFILE = addon.getAddonInfo('profile')
+ADDON_NAME = py23_decode(addon.getAddonInfo('name'))
+ADDON_PROFILE = addon.getAddonInfo('profile') # Unicode decoding not needed for this
 _localString = addon.getLocalizedString
+#addon.setSetting('user_prefs', 'enabled')
 
 # Per profile preference
-userProfilePath = xbmc.translatePath(ADDON_PROFILE)
-leakPostersFile = u'leakposters.json'
+userProfilePath = py23_decode(xbmc.translatePath(ADDON_PROFILE))
+leakPostersFile = 'leakposters.json'
 leakPostersFileLocation = path.join(userProfilePath, leakPostersFile)
+# Try to ensure userdata folder is available
+if not xbmcvfs.exists(userProfilePath):
+    try:
+        _ = xbmcvfs.mkdirs(userProfilePath)
+    except:
+        try:
+            os.makedirs(userProfilePath)
+        except:
+            pass
 
 # HTTP constants
 user_agent = ['Mozilla/5.0 (Windows NT 6.1; Win64; x64)',
@@ -66,7 +96,7 @@ domain_home = "https://www.liveleak.com/"
 
 # --- Helper functions ---
 
-def log(txt, level='debug'):
+def log(txt, level='notice'): # Default must be 'debug' for production use
     #Write text to Kodi log file.
     levels = {
         'debug': xbmc.LOGDEBUG,
@@ -75,7 +105,7 @@ def log(txt, level='debug'):
         }
     logLevel = levels.get(level, xbmc.LOGDEBUG)
 
-    message = '%s: %s' % (ADDON_NAME, txt)
+    message = py23_encode('%s: %s' % (ADDON_NAME, txt))
     xbmc.log(msg=message, level=logLevel)
 
 def notify(message):
@@ -170,7 +200,7 @@ def buildListItem((url, medium, meta)):
         url = buildUrl({'mode': 'play', 'url': medium, 'src': src})
     else:
         url = 'plugin://plugin.video.youtube/play/?video_id=%s' % medium
-        url = url.encode('utf-8')
+    url = py23_encode(url)
 
     # Build list item
     user_label = leakPosters.get(credit, 0)
@@ -188,27 +218,37 @@ def buildListItem((url, medium, meta)):
     liz.setArt( {'thumb': thumbnail} )
     liz.setProperty('IsPlayable', 'true')
     cmd = "XBMC.RunPlugin({})"
-    cmd = cmd.format( buildUrl( {'mode': 'label_user', 'user': credit.encode('utf-8')} ) )
-    liz.addContextMenuItems([('Moderate user: %s' % credit, cmd)])
+    cmd = cmd.format( buildUrl( {'mode': 'label_user', 'user': credit} ) )
+    liz.addContextMenuItems([('Label user: %s' % credit, cmd)])
 
     return (url, liz)
 
 def saveLeakPosters(leakPosters):
-    # Kludge to force auto-creation of the required userdata folder
-    addon.setSetting('user_prefs', 'enabled')
+    if WIN: # Use unicode
+        myEncoding = None
+    else:
+        myEncoding = 'utf-8'
     try:
-        with open(leakPostersFileLocation, 'w') as f:
-            f.write(json.dumps(leakPosters))
+        with io.open(leakPostersFileLocation, 'w', encoding=myEncoding) as f:
+            j_string = json.dumps(leakPosters, ensure_ascii=False)
+            if isinstance(j_string, str):
+                j_string = py23_decode(j_string)
+            f.write(j_string)
         return True
     except Exception as e:
+        log('save')
         log(e)
         return False
 
 def loadLeakPosters():
+    if WIN: # Use unicode
+        myEncoding = None
+    else:
+        myEncoding = 'utf-8'
     try:
-        with open(leakPostersFileLocation, 'r') as f:
+        with io.open(leakPostersFileLocation, 'r', encoding=myEncoding) as f:
             return json.loads(f.read())
-    except:
+    except Exception as e:
         saveLeakPosters({})
         return {}
 
@@ -300,7 +340,7 @@ def index(url):
             items.append(fetchItemDetails(post))
     else:
         # Fetch post details via multiple threads
-        pool = Pool(8)
+        pool = Pool(cpu_count() * 2)
         items = pool.map(fetchItemDetails, posts)
         pool.close()
         pool.join()
@@ -349,7 +389,7 @@ def viewPlay(url):
         item = match[1]
         if not 'cdn.liveleak.com' in item:
             item = 'plugin://plugin.video.youtube/play/?video_id=%s' % item
-        play_item = xbmcgui.ListItem(path=item.encode('utf-8'))
+        play_item = xbmcgui.ListItem(path=py23_encode(item))
         # Pass the item to the Kodi player.
         xbmcplugin.setResolvedUrl(ADDON_HANDLE, True, listitem=play_item)
     else:
@@ -379,7 +419,7 @@ def playVideo(url, src):
         page = requests.get(domain_home + src, headers=http_headers, timeout=http_timeout).text
         match = re.search(regexp, page)
         if match:
-            url = match.group(1).encode('utf-8')
+            url = py23_encode(match.group(1))
         else:
             notify("Video has disappeared")
             return False
@@ -398,7 +438,7 @@ def playVideo(url, src):
 try:
     params = dict(parse_qsl(sys.argv[2][1:]))
     for key in params:
-        try: params[key] = unquote_plus(params[key]).decode('utf-8')
+        try: params[key] = py23_decode(unquote_plus(params[key]))
         except: pass
 except:
     params = {}
@@ -424,13 +464,12 @@ elif mode == 'play':
 elif mode == 'label_user':
     leakPosters = loadLeakPosters()
 
-    user = params.get('user', '???').decode('utf-8')
+    user = py23_decode(params.get('user', '???'))
 
     select_title = "Label items posted by %s:" % user
     select_list = ['Remove label', 'Like', 'Dislike', 'Known, Neutral-ish']
     # Remove the user's current label from choice list
-    del select_list[leakPosters.get(user, 0)]
-    choice = xbmcgui.Dialog().select(select_title, select_list)
+    choice = xbmcgui.Dialog().select(select_title, select_list, preselect=leakPosters.get(user, 0))
 
     if choice >= 0:
         if choice == 0:
@@ -443,7 +482,7 @@ elif mode == 'label_user':
             message = "in blue"
 
         caption = "Success"
-        message = "Postings by %s will be displayed %s on subsequent pages." % (user, message)
+        message = "Postings by %s will be displayed %s on subsequent page loads." % (user, message)
 
         leakPosters[user] = choice
         if not saveLeakPosters(leakPosters):
