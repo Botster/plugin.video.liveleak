@@ -96,7 +96,7 @@ domain_home = "https://www.liveleak.com/"
 
 # --- Helper functions ---
 
-def log(txt, level='notice'): # Default must be 'debug' for production use
+def log(txt, level='debug'): # Default must be 'debug' for production use
     #Write text to Kodi log file.
     levels = {
         'debug': xbmc.LOGDEBUG,
