@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 
 # Standard libraries - Python 2 & 3
-import sys, io, re, time, requests, json
+import sys, io, re, requests, json
 from os import path
 from bs4 import BeautifulSoup as bs
 
@@ -86,6 +86,8 @@ http_headers = {'User-Agent':user_agent,
 
 http_timeout = 15
 
+monitor = xbmc.Monitor() # For abort-aware sleep
+
 # Where our targets live
 domain_home = "https://www.liveleak.com/"
 
@@ -141,12 +143,14 @@ def findAllMediaItems(block):
 
     return media
 
-def fetchItemDetails((url, meta)):
+def fetchItemDetails(url_meta):
+    (url, meta) = url_meta
     page = requests.get(url)
 
     if page.status_code == 503: #Service temporarily unavailable, try one more time
-        time.sleep(2)
-        page = requests.get(url)
+        monitor.waitForAbort(2)
+        if not monitor.abortRequested():
+            page = requests.get(url)
 
     if page.status_code != requests.codes.ok: # Uh-oh!
         log("Error: %s: %s" % (page.status_code, url))
@@ -183,7 +187,8 @@ def fetchItemDetails((url, meta)):
         else:
             return ((url, media[0], meta)) # single item
 
-def buildListItem((url, medium, meta)):
+def buildListItem(url_medium_meta):
+    (url, medium, meta) = url_medium_meta
     #Extract meta info
     title = meta['title']
     thumbnail = meta['thumbnail']
@@ -236,7 +241,6 @@ def saveLeakPosters(leakPosters):
             f.write(j_string)
         return True
     except Exception as e:
-        log('save')
         log(e)
         return False
 
@@ -248,7 +252,7 @@ def loadLeakPosters():
     try:
         with io.open(leakPostersFileLocation, 'r', encoding=myEncoding) as f:
             return json.loads(f.read())
-    except Exception as e:
+    except:
         saveLeakPosters({})
         return {}
 
@@ -306,8 +310,9 @@ def index(url):
 
     page = requests.get(url, headers=http_headers, timeout=http_timeout)
     if page.status_code == 503: #Service temporarily unavailable, try one more time
-        time.sleep(1)
-        page = requests.get(url, headers=http_headers, timeout=http_timeout)
+        monitor.waitForAbort(1)
+        if not monitor.abortRequested():
+            page = requests.get(url, headers=http_headers, timeout=http_timeout)
 
     page = page.text
     if page is None:
