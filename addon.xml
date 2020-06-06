@@ -19,6 +19,6 @@
         <license>GNU General Public License Version 3</license>
         <source>https://github.com/botster/plugin.video.liveleak</source>
         <website>https://www.liveleak.com/</website>
-        <news>v1.4.0 (2020-5-31) - Fix YT video link parsing, various other fixes and upgrades</news>
+        <news>v1.4.1 (2020-6-6) - Gracefully handle anomalous missing element exeptions; Add new categories</news>
     </extension>
 </addon>
