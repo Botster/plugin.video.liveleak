@@ -229,7 +229,7 @@ def buildListItem(url_medium_meta):
     liz.setProperty('IsPlayable', 'true')
     # If user not Unknown, allow labeling of distinct LL users
     if credit != 'Unknown':
-        cmd = "XBMC.RunPlugin({})"
+        cmd = "RunPlugin({})"
         cmd = cmd.format( buildUrl( {'mode': 'label_user', 'user': credit} ) )
         liz.addContextMenuItems([('Label user: %s' % credit, cmd)])
 
@@ -325,7 +325,7 @@ def index(url):
 
     page = page.text
     if page is None:
-        notify("The server is not cooperating at the moment")
+        notify(_localString(30020))
         return
 
     # Get list of individual posts from indexing page
@@ -334,7 +334,7 @@ def index(url):
     try:
         featured_items_outer = listing.find_all('div', class_='featured_items_outer')
     except:
-        notify('Cannot find any Thread items')
+        notify(_localString(30021))
         return
 
     for item in featured_items_outer:
@@ -417,7 +417,7 @@ def viewPlay(url):
 
     # Verify it's actually a "view" page
     if not any(x in url for x in url_patterns):
-        notify("Invalid URL format")
+        notify(_localString(30022))
         return
 
     match = fetchItemDetails((url, '')) # (url, media, meta)
@@ -432,7 +432,7 @@ def viewPlay(url):
         # Pass the item to the Kodi player.
         xbmcplugin.setResolvedUrl(ADDON_HANDLE, True, listitem=play_item)
     else:
-        notify("Sorry, no playable media found.")
+        notify(_localString(30023))
         return
 
 def playVideo(url, src):
@@ -449,7 +449,7 @@ def playVideo(url, src):
     content_type = response.headers.get('content-type')
 
     if content_type is None:
-        notify("The server is not cooperating at the moment")
+        notify(_localString(30020))
         return False
 
     if 'text/html' in content_type: # Link has expired else would be video type
@@ -460,7 +460,7 @@ def playVideo(url, src):
         if match:
             url = py23_encode(match.group(1))
         else:
-            notify("Video has disappeared")
+            notify(_localString(30024))
             return False
 
     # Create a playable item with a url to play.

@@ -16,7 +16,7 @@
         <description lang="en_GB">Redefining The Media</description>
         <language>en</language>
         <platform>all</platform>
-        <license>GNU General Public License Version 3</license>
+        <license>GPL-3.0-or-later</license>
         <source>https://github.com/botster/plugin.video.liveleak</source>
         <website>https://www.liveleak.com/</website>
         <news>v1.4.1 (2020-6-6) - Gracefully handle anomalous missing element exceptions; Add new categories</news>
