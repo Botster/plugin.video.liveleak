@@ -230,13 +230,13 @@ def buildListItem(url_medium_meta):
     # If user not Unknown, allow labeling of distinct LL users
     if credit != 'Unknown':
         cmd = "RunPlugin({})"
-        cmd = cmd.format( buildUrl( {'mode': 'label_user', 'user': credit} ) )
+        cmd = cmd.format( buildUrl( {'mode': 'label_user', 'user': py23_encode(credit)} ) )
         liz.addContextMenuItems([('Label user: %s' % credit, cmd)])
 
     return (url, liz)
 
 def saveLeakPosters(leakPosters):
-    if WIN: # Use unicode
+    if WIN:
         myEncoding = None
     else:
         myEncoding = 'utf-8'
@@ -252,7 +252,7 @@ def saveLeakPosters(leakPosters):
         return False
 
 def loadLeakPosters():
-    if WIN: # Use unicode
+    if WIN:
         myEncoding = None
     else:
         myEncoding = 'utf-8'
@@ -503,7 +503,7 @@ elif mode == 'play':
 elif mode == 'label_user':
     leakPosters = loadLeakPosters()
 
-    user = py23_decode(params.get('user', '???'))
+    user = params.get('user', '???')
 
     select_title = "Label items posted by %s:" % user
     select_list = ['Remove label', 'Like', 'Dislike', 'Known, Neutral-ish']
@@ -511,7 +511,9 @@ elif mode == 'label_user':
     choice = xbmcgui.Dialog().select(select_title, select_list, preselect=leakPosters.get(user, 0))
 
     if choice >= 0:
+        leakPosters[user] = choice
         if choice == 0:
+            leakPosters.pop(user) # Just remove this user
             message = "normally"
         elif choice == 1:
             message = "in green"
@@ -520,10 +522,9 @@ elif mode == 'label_user':
         elif choice == 3:
             message = "in blue"
 
-        caption = "Success"
+        caption = "Pending Successful Save of Settings"
         message = "Postings by %s will be displayed %s on subsequent page loads." % (user, message)
 
-        leakPosters[user] = choice
         if not saveLeakPosters(leakPosters):
             caption = "ERROR"
             message = "Setting could not be saved."
