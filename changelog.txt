@@ -1,3 +1,6 @@
+v2.0.0 (2021-3-16)
+- Kodi 19 Matrix version
+
 v1.4.2 (2020-7-6)
 - Adapt to change in LL CDN media links
 
