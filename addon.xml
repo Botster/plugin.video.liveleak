@@ -21,4 +21,8 @@
         <website>https://www.liveleak.com/</website>
         <news>v2.0.0 (2021-3-16) - Kodi 19 Matrix version</news>
     </extension>
+    <assets>
+        <icon>resources/icon.png</icon>
+        <fanart>resources/fanart.jpg</fanart>
+    </assets>
 </addon>
