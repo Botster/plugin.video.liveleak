@@ -103,7 +103,7 @@ def log(txt, level='debug'): # Default must be 'debug' for production use
     levels = {
         'debug': xbmc.LOGDEBUG,
         'error': xbmc.LOGERROR,
-        'notice': xbmc.LOGNOTICE
+        'info': xbmc.LOGINFO
         }
     logLevel = levels.get(level, xbmc.LOGDEBUG)
 
@@ -111,9 +111,7 @@ def log(txt, level='debug'): # Default must be 'debug' for production use
     xbmc.log(msg=message, level=logLevel)
 
 def notify(message):
-    #Execute built-in GUI Notification
-    command = 'XBMC.Notification("%s","%s",%s)' % (ADDON_NAME, message, 5000)
-    xbmc.executebuiltin(command)
+    xbmcgui.Dialog().notification(ADDON_NAME, message)
 
 def buildUrl(query):
     return BASE_URL + '?' + urlencode(query)
@@ -231,7 +229,7 @@ def buildListItem(url_medium_meta):
     if credit != 'Unknown':
         cmd = "RunPlugin({})"
         cmd = cmd.format( buildUrl( {'mode': 'label_user', 'user': py23_encode(credit)} ) )
-        liz.addContextMenuItems([('Label user: %s' % credit, cmd)])
+        liz.addContextMenuItems([(_localString(30053).format(credit), cmd)]) # 'Label user: {}'
 
     return (url, liz)
 
@@ -264,7 +262,7 @@ def loadLeakPosters():
         return {}
 
 def getSearchString():
-    keyboard = xbmc.Keyboard('', 'Search')
+    keyboard = xbmc.Keyboard('', _localString(30009)) # "Search"
     keyboard.doModal()
     if (keyboard.isConfirmed()==False):
         return ''
@@ -402,9 +400,9 @@ def index(url):
                     iList.append((url, liz, False))
 
         xbmcplugin.addDirectoryItems(ADDON_HANDLE, iList, len(iList))
-        liz=xbmcgui.ListItem("Go To Page " + nextPageNumber)
+        liz=xbmcgui.ListItem(_localString(30030) + " " + nextPageNumber) # "Go To Page"
         xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=pagedUrl,listitem=liz,isFolder=True)
-        liz=xbmcgui.ListItem("Back To Categories")
+        liz=xbmcgui.ListItem(_localString(30031)) # "Back To Categories"
         xbmcplugin.addDirectoryItem(handle=ADDON_HANDLE,url=BASE_URL,listitem=liz,isFolder=True)
 
         xbmcplugin.endOfDirectory(ADDON_HANDLE)
@@ -505,8 +503,9 @@ elif mode == 'label_user':
 
     user = params.get('user', '???')
 
-    select_title = "Label items posted by %s:" % user
-    select_list = ['Remove label', 'Like', 'Dislike', 'Known, Neutral-ish']
+    select_title = _localString(30040).format(user) # "Label items posted by {}:"
+    # 'Remove label', 'Like', 'Dislike', 'Known'
+    select_list = [_localString(30041), _localString(30042), _localString(30043), _localString(30044)]
     # Remove the user's current label from choice list
     choice = xbmcgui.Dialog().select(select_title, select_list, preselect=leakPosters.get(user, 0))
 
@@ -514,19 +513,20 @@ elif mode == 'label_user':
         leakPosters[user] = choice
         if choice == 0:
             leakPosters.pop(user) # Just remove this user
-            message = "normally"
+            message = _localString(30045) #normally
         elif choice == 1:
-            message = "in green"
+            message = _localString(30046) #green
         elif choice == 2:
-            message = "in grey"
+            message = _localString(30047) #grey
         elif choice == 3:
-            message = "in blue"
+            message = _localString(30048) #blue
 
-        caption = "Pending Successful Save of Settings"
-        message = "Postings by %s will be displayed %s on subsequent page loads." % (user, message)
+        caption = _localString(30049) # "Pending Successful Save of Settings"
+        # "Postings by {} will be displayed {} on subsequent page loads."
+        message = _localString(30050).format(user, message)
 
         if not saveLeakPosters(leakPosters):
-            caption = "ERROR"
-            message = "Setting could not be saved."
+            caption = _localString(30051) # "ERROR"
+            message = _localString(30052) # "Setting could not be saved."
 
         xbmcgui.Dialog().ok(caption, message)

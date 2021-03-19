@@ -92,3 +92,68 @@ msgctxt "#30024"
 msgid "Video link expired - reload page"
 msgstr ""
 
+# Navigation
+msgctxt "#30030"
+msgid "Go To Page"
+msgstr ""
+
+msgctxt "#30031"
+msgid "Back To Categories"
+msgstr ""
+
+# Labeling
+msgctxt "#30040"
+msgid "Label items posted by {}:"
+msgstr ""
+
+msgctxt "#30041"
+msgid "Remove label"
+msgstr ""
+
+msgctxt "#30042"
+msgid "Like"
+msgstr ""
+
+msgctxt "#30043"
+msgid "Dislike"
+msgstr ""
+
+msgctxt "#30044"
+msgid "Known"
+msgstr ""
+
+msgctxt "#30045"
+msgid "normally"
+msgstr ""
+
+msgctxt "#30046"
+msgid "green"
+msgstr ""
+
+msgctxt "#30047"
+msgid "grey"
+msgstr ""
+
+msgctxt "#30048"
+msgid "blue"
+msgstr ""
+
+msgctxt "#30049"
+msgid "Pending Successful Save of Settings"
+msgstr ""
+
+msgctxt "#30050"
+msgid "Postings by {} will be displayed {} on subsequent page loads."
+msgstr ""
+
+msgctxt "#30051"
+msgid "ERROR"
+msgstr ""
+
+msgctxt "#30052"
+msgid "Setting could not be saved."
+msgstr ""
+
+msgctxt "#30053"
+msgid "Label user: {}"
+msgstr ""
