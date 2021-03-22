@@ -41,7 +41,7 @@ def py23_decode(s, encoding='utf-8'):
 # Fallback if multiprocessing module is not available
 slow_mode = False
 try:
-    from multiprocessing.dummy import Pool
+    from multiprocessing.dummy import Pool, cpu_count
 except:
     slow_mode = True
 
@@ -58,7 +58,7 @@ _localString = addon.getLocalizedString
 #addon.setSetting('user_prefs', 'enabled')
 
 # Per profile preference
-userProfilePath = py23_decode(xbmcvfs.translatePath(ADDON_PROFILE))
+userProfilePath = py23_decode(xbmc.translatePath(ADDON_PROFILE))
 leakPostersFile = 'leakposters.json'
 leakPostersFileLocation = path.join(userProfilePath, leakPostersFile)
 # Try to ensure userdata folder is available
@@ -377,7 +377,7 @@ def index(url):
             items.append(fetchItemDetails(post))
     else:
         # Fetch post details via multiple threads
-        pool = Pool(os.cpu_count() * 2)
+        pool = Pool(cpu_count() * 2)
         items = pool.map(fetchItemDetails, posts)
         pool.close()
         pool.join()
