@@ -234,7 +234,7 @@ def buildListItem(url_medium_meta):
     return (url, liz)
 
 def saveLeakPosters(leakPosters):
-    if WIN:
+    if WIN: # Use unicode
         myEncoding = None
     else:
         myEncoding = 'utf-8'
@@ -250,7 +250,7 @@ def saveLeakPosters(leakPosters):
         return False
 
 def loadLeakPosters():
-    if WIN:
+    if WIN: # Use unicode
         myEncoding = None
     else:
         myEncoding = 'utf-8'
@@ -501,7 +501,7 @@ elif mode == 'play':
 elif mode == 'label_user':
     leakPosters = loadLeakPosters()
 
-    user = params.get('user', '???')
+    user = py23_decode(params.get('user', '???'))
 
     select_title = _localString(30040).format(user) # "Label items posted by {}:"
     # 'Remove label', 'Like', 'Dislike', 'Known'
@@ -510,7 +510,6 @@ elif mode == 'label_user':
     choice = xbmcgui.Dialog().select(select_title, select_list, preselect=leakPosters.get(user, 0))
 
     if choice >= 0:
-        leakPosters[user] = choice
         if choice == 0:
             leakPosters.pop(user) # Just remove this user
             message = _localString(30045) #normally
@@ -525,6 +524,7 @@ elif mode == 'label_user':
         # "Postings by {} will be displayed {} on subsequent page loads."
         message = _localString(30050).format(user, message)
 
+        leakPosters[user] = choice
         if not saveLeakPosters(leakPosters):
             caption = _localString(30051) # "ERROR"
             message = _localString(30052) # "Setting could not be saved."
