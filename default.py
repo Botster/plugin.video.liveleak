@@ -44,6 +44,9 @@ try:
     from multiprocessing.dummy import Pool
 except:
     slow_mode = True
+# Workaround for bug in Android build for Kodi 19
+if 'ANDROID_BOOTLOGO' in os.environ:
+    slow_mode = True
 
 # Kodi libraries
 import xbmc, xbmcplugin, xbmcgui, xbmcaddon, xbmcvfs
