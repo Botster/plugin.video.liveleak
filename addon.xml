@@ -19,6 +19,6 @@
         <license>GPL-3.0-or-later</license>
         <source>https://github.com/botster/plugin.video.liveleak</source>
         <website>https://www.liveleak.com/</website>
-        <news>v1.4.3 (2021-3-22) - Unicode fix & localizations</news>
+        <news>v1.4.3 (2021-3-22) - Unicode fix and localizations</news>
     </extension>
 </addon>
